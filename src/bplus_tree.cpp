@@ -220,6 +220,53 @@ public:
         return -1;
     }
 
+
+    // Return all records within an inclusive range.
+    vector<pair<int, int>> rangeSearch(int low, int high) const {
+
+        vector<pair<int, int>> result;
+
+        if (low > high) {
+            return result;
+        }
+
+        // Find the leaf containing the lower bound.
+        Node* current = findLeaf(low);
+
+        // Locate the first key >= low.
+        auto it = lower_bound(
+            current->entries.begin(),
+            current->entries.end(),
+            low,
+            [](const pair<int, int>& entry, int value) {
+                return entry.first < value;
+            }
+        );
+
+        // Traverse the linked leaves.
+        while (current != nullptr) {
+
+            while (it != current->entries.end()) {
+
+                if (it->first > high) {
+                    return result;
+                }
+
+                result.push_back(*it);
+                ++it;
+            }
+
+            // Move to the next leaf.
+            current = current->next;
+
+            if (current != nullptr) {
+                it = current->entries.begin();
+            }
+        }
+
+        return result;
+    }
+
     void displayLeaves() const {
 
         Node* current = root;
