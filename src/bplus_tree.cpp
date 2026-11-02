@@ -174,6 +174,106 @@ private:
         delete node;
     }
 
+
+    // Collect leaf nodes using the tree hierarchy.
+    void collectLeaves(Node* node, vector<Node*>& leaves) const {
+        if (node->isLeaf) {
+            leaves.push_back(node);
+            return;
+        }
+
+        for (Node* child : node->children) {
+            collectLeaves(child, leaves);
+        }
+    }
+
+    // Validate a node recursively.
+    bool validateNode(
+        Node* node,
+        int depth,
+        int& leafDepth
+    ) const {
+
+        if (node == nullptr) {
+            return false;
+        }
+
+        // Check node capacity.
+        if (node->isLeaf) {
+
+            if (node->entries.size() > MAX_KEYS) {
+                return false;
+            }
+
+            // Check sorted leaf entries.
+            for (size_t i = 1; i < node->entries.size(); i++) {
+                if (node->entries[i - 1].first >=
+                    node->entries[i].first) {
+                    return false;
+                }
+            }
+
+            // Every leaf must have the same depth.
+            if (leafDepth == -1) {
+                leafDepth = depth;
+            } else if (leafDepth != depth) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Check internal node capacity.
+        if (node->keys.size() > MAX_KEYS) {
+            return false;
+        }
+
+        // Internal nodes need keys.size() + 1 children.
+        if (node->children.size() != node->keys.size() + 1) {
+            return false;
+        }
+
+        // Check sorted separator keys.
+        for (size_t i = 1; i < node->keys.size(); i++) {
+            if (node->keys[i - 1] >= node->keys[i]) {
+                return false;
+            }
+        }
+
+        // Validate every child.
+        for (Node* child : node->children) {
+            if (!validateNode(child, depth + 1, leafDepth)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Check whether linked leaves match tree traversal.
+    bool validateLeafLinks() const {
+
+        vector<Node*> leaves;
+        collectLeaves(root, leaves);
+
+        if (leaves.empty()) {
+            return false;
+        }
+
+        for (size_t i = 0; i < leaves.size(); i++) {
+
+            Node* expectedNext =
+                (i + 1 < leaves.size()) ? leaves[i + 1] : nullptr;
+
+            if (leaves[i]->next != expectedNext) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
 public:
 
     BPlusTree() {
@@ -308,27 +408,109 @@ public:
     ~BPlusTree() {
         destroy(root);
     }
+
+
+    bool validate() const {
+
+        int leafDepth = -1;
+
+        bool structureValid =
+            validateNode(root, 0, leafDepth);
+
+        if (!structureValid) {
+            cout << "Tree structure validation failed!\n";
+            return false;
+        }
+
+        if (!validateLeafLinks()) {
+            cout << "Leaf linkage validation failed!\n";
+            return false;
+        }
+
+        cout << "B+Tree validation successful!\n";
+        return true;
+    }
+
 };
 
 int main() {
 
     BPlusTree tree;
 
-    int keys[] = {10, 20, 30, 40, 50, 60, 70, 80, 90};
+    // Test 1: Unsorted insertion
+    cout << "\nTEST 1: Insertion\n";
+
+    int keys[] = {
+        50, 20, 80, 10, 40,
+        70, 30, 90, 60, 100,
+        110, 120, 130, 140, 150,
+        160, 170, 180, 190, 200
+    };
 
     for (int key : keys) {
         tree.insert(key, key * 10);
+
+        if (!tree.validate()) {
+            cout << "Insertion test failed at key "
+                 << key << '\n';
+            return 1;
+        }
     }
 
+    cout << "All insertions passed!\n";
+
+    // Test 2: Search
+    cout << "\nTEST 2: Searching\n";
+
+    bool searchPassed = true;
+
+    for (int key : keys) {
+        if (tree.search(key) != key * 10) {
+            cout << "Search failed for key " << key << '\n';
+            searchPassed = false;
+        }
+    }
+
+    if (tree.search(999) != -1) {
+        cout << "Missing-key search failed!\n";
+        searchPassed = false;
+    }
+
+    cout << (searchPassed ? "Search tests passed!\n"
+                          : "Search tests failed!\n");
+
+    // Test 3: Duplicate insertion
+    cout << "\nTEST 3: Duplicate insertion\n";
+
+    tree.insert(50, 9999);
+
+    if (tree.search(50) == 500) {
+        cout << "Duplicate protection passed!\n";
+    } else {
+        cout << "Duplicate protection failed!\n";
+    }
+
+    // Test 4: Range query
+    cout << "\nTEST 4: Range query (50 - 100)\n";
+
+    vector<pair<int, int>> records =
+        tree.rangeSearch(50, 100);
+
+    for (const auto& record : records) {
+        cout << record.first << " -> "
+             << record.second << '\n';
+    }
+
+    // Test 5: Final validation
+    cout << "\nTEST 5: Final validation\n";
+
+    if (tree.validate()) {
+        cout << "ALL STRUCTURAL TESTS PASSED!\n";
+    }
+
+    // Display final structure
     tree.displayRoot();
     tree.displayLeaves();
-
-    cout << "\nSearch results:\n";
-
-    cout << "40 -> " << tree.search(40) << '\n';
-    cout << "70 -> " << tree.search(70) << '\n';
-    cout << "90 -> " << tree.search(90) << '\n';
-    cout << "99 -> " << tree.search(99) << '\n';
 
     return 0;
 }
