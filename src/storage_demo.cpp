@@ -1,43 +1,60 @@
 
 #include <iostream>
+#include <string>
+
+#include "page.h"
 #include "storage_manager.h"
 
-using namespace std;
+int main(int argc, char* argv[]) {
 
-int main() {
+    // Check command-line arguments
+    if (argc != 2) {
+        std::cout << "Usage:\n";
+        std::cout << "./storage_demo.exe write\n";
+        std::cout << "./storage_demo.exe read\n";
+        return 1;
+    }
+
+    std::string operation = argv[1];
 
     try {
-
-        // Create a database storage manager.
+        // Create storage manager
         StorageManager storage("database.db");
 
-        // Create a page.
-        Page page;
+        if (operation == "write") {
 
-        // Store information.
-        page.writeString("Hello Database!");
+            Page page;
 
-        // Write page 0 to disk.
-        storage.writePage(0, page);
+            // Store data inside the page
+            page.writeString("Hello Database!");
 
-        cout << "Page written successfully!\n";
+            // Write page 0 to disk
+            storage.writePage(0, page);
 
-        // Read page 0 from disk.
-        Page loadedPage;
+            std::cout << "Data saved to disk!\n";
+        }
 
-        storage.readPage(0, loadedPage);
+        else if (operation == "read") {
 
-        // Retrieve stored information.
-        string result = loadedPage.readString();
+            Page page;
 
-        cout << "Data retrieved: " << result << '\n';
+            // Read page 0 from disk
+            storage.readPage(0, page);
 
-        cout << "Page size: "
-             << Page::PAGE_SIZE << " bytes\n";
+            // Display retrieved data
+            std::cout << "Data retrieved: "
+                      << page.readString()
+                      << std::endl;
+        }
 
+        else {
+            std::cout << "Invalid operation!\n";
+            return 1;
+        }
     }
-    catch (const exception& e) {
-        cerr << "Error: " << e.what() << '\n';
+
+    catch (const std::exception& error) {
+        std::cerr << "Error: " << error.what() << std::endl;
         return 1;
     }
 
