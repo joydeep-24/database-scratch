@@ -7,6 +7,7 @@
 #include <string>
 #include <stdexcept>
 #include <cstdint>
+#include <array>
 
 class StorageManager {
 private:
@@ -14,11 +15,9 @@ private:
     std::fstream file;
 
 public:
-    // Constructor
     StorageManager(const std::string& fileName)
         : filename(fileName) {
 
-        // Open the file for reading and writing in binary mode
         file.open(
             filename,
             std::ios::in |
@@ -26,7 +25,7 @@ public:
             std::ios::binary
         );
 
-        // Create the file if it does not exist
+        // Create file if it doesn't exist
         if (!file.is_open()) {
             std::ofstream createFile(filename, std::ios::binary);
             createFile.close();
@@ -46,16 +45,47 @@ public:
         }
     }
 
+    // Count existing pages
+    uint32_t getPageCount() {
+        file.clear();
+        file.seekg(0, std::ios::end);
+
+        std::streamoff fileSize = file.tellg();
+
+        if (fileSize < 0) {
+            throw std::runtime_error("Unable to determine file size");
+        }
+
+        if (fileSize % Page::PAGE_SIZE != 0) {
+            throw std::runtime_error("Database file is corrupted");
+        }
+
+        return static_cast<uint32_t>(
+            fileSize / Page::PAGE_SIZE
+        );
+    }
+
+    // Allocate a new page
+    uint32_t allocatePage() {
+        uint32_t pageId = getPageCount();
+
+        // Create an empty page
+        Page emptyPage;
+
+        // Write the empty page to disk
+        writePage(pageId, emptyPage);
+
+        return pageId;
+    }
+
     // Write a page to disk
     void writePage(uint32_t pageId, const Page& page) {
-        // Calculate the page's position in the file
         std::streamoff offset =
             static_cast<std::streamoff>(pageId) * Page::PAGE_SIZE;
 
         file.clear();
         file.seekp(offset, std::ios::beg);
 
-        // Write all 4096 bytes
         const auto& data = page.getData();
 
         file.write(
@@ -72,14 +102,16 @@ public:
 
     // Read a page from disk
     void readPage(uint32_t pageId, Page& page) {
-        // Calculate the page's position in the file
+        if (pageId >= getPageCount()) {
+            throw std::runtime_error("Page does not exist");
+        }
+
         std::streamoff offset =
             static_cast<std::streamoff>(pageId) * Page::PAGE_SIZE;
 
         file.clear();
         file.seekg(offset, std::ios::beg);
 
-        // Temporary buffer for reading page data
         std::array<char, Page::PAGE_SIZE> buffer{};
 
         file.read(
@@ -87,7 +119,6 @@ public:
             static_cast<std::streamsize>(Page::PAGE_SIZE)
         );
 
-        // Ensure that a complete page was read
         if (file.gcount() != static_cast<std::streamsize>(Page::PAGE_SIZE)) {
             throw std::runtime_error("Failed to read complete page");
         }
@@ -95,7 +126,6 @@ public:
         page.setData(buffer);
     }
 
-    // Destructor
     ~StorageManager() {
         if (file.is_open()) {
             file.close();

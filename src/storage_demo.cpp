@@ -1,60 +1,93 @@
 
 #include <iostream>
 #include <string>
+#include <stdexcept>
 
 #include "page.h"
 #include "storage_manager.h"
 
 int main(int argc, char* argv[]) {
 
-    // Check command-line arguments
-    if (argc != 2) {
-        std::cout << "Usage:\n";
-        std::cout << "./storage_demo.exe write\n";
-        std::cout << "./storage_demo.exe read\n";
+    if (argc < 2) {
+        std::cout << "Available commands:\n";
+        std::cout << "./storage_demo.exe allocate\n";
+        std::cout << "./storage_demo.exe write <page_id> <text>\n";
+        std::cout << "./storage_demo.exe read <page_id>\n";
+        std::cout << "./storage_demo.exe count\n";
         return 1;
     }
 
-    std::string operation = argv[1];
-
     try {
-        // Create storage manager
         StorageManager storage("database.db");
 
-        if (operation == "write") {
+        std::string operation = argv[1];
 
-            Page page;
+        // Allocate a new page
+        if (operation == "allocate") {
 
-            // Store data inside the page
-            page.writeString("Hello Database!");
+            uint32_t pageId = storage.allocatePage();
 
-            // Write page 0 to disk
-            storage.writePage(0, page);
-
-            std::cout << "Data saved to disk!\n";
+            std::cout << "New page allocated!\n";
+            std::cout << "Page ID: " << pageId << "\n";
         }
 
-        else if (operation == "read") {
+        // Write data into an existing page
+        else if (operation == "write") {
+
+            if (argc < 4) {
+                std::cout << "Usage: write <page_id> <text>\n";
+                return 1;
+            }
+
+            uint32_t pageId = std::stoul(argv[2]);
+
+            std::string text = argv[3];
 
             Page page;
 
-            // Read page 0 from disk
-            storage.readPage(0, page);
+            page.writeString(text);
 
-            // Display retrieved data
+            storage.writePage(pageId, page);
+
+            std::cout << "Data written to page "
+                      << pageId << "\n";
+        }
+
+        // Read data from a page
+        else if (operation == "read") {
+
+            if (argc < 3) {
+                std::cout << "Usage: read <page_id>\n";
+                return 1;
+            }
+
+            uint32_t pageId = std::stoul(argv[2]);
+
+            Page page;
+
+            storage.readPage(pageId, page);
+
             std::cout << "Data retrieved: "
-                      << page.readString()
-                      << std::endl;
+                      << page.readString() << "\n";
+        }
+
+        // Display total page count
+        else if (operation == "count") {
+
+            std::cout << "Total pages: "
+                      << storage.getPageCount() << "\n";
         }
 
         else {
-            std::cout << "Invalid operation!\n";
+            std::cout << "Invalid command!\n";
             return 1;
         }
     }
 
     catch (const std::exception& error) {
-        std::cerr << "Error: " << error.what() << std::endl;
+        std::cerr << "Error: "
+                  << error.what() << "\n";
+
         return 1;
     }
 
